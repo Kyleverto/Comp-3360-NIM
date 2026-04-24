@@ -2,8 +2,8 @@
 #include <WS2tcpip.h>
 #include <iostream>
 #include <cstring>
-#include "StudyBuddy.h"
-//#include "Utilities.cpp"
+#include "NimH.h"
+
 
 using namespace std;
 
@@ -117,23 +117,23 @@ void runServer(const char userName[])
     freeaddrinfo(result);
 
 
-    char location[DEFAULT_BUFLEN] = "";
-    char courses[DEFAULT_BUFLEN] = "";
-    char members[DEFAULT_BUFLEN] = "";
+    //char location[DEFAULT_BUFLEN] = "";
+    //char courses[DEFAULT_BUFLEN] = "";
+    //char members[DEFAULT_BUFLEN] = "";
     char recvBuf[DEFAULT_BUFLEN] = "";
     char sendBuf[DEFAULT_BUFLEN] = "";
 
     sockaddr_in senderAddr{};
     int senderAddrSize = sizeof(senderAddr);
 
-    cout << "\nEnter location of the study group: ";
-    cin.getline(location, DEFAULT_BUFLEN);
-    cout << "Enter course list: ";
-    cin.getline(courses, DEFAULT_BUFLEN);
+    //cout << "\nEnter location of the study group: ";
+    //cin.getline(location, DEFAULT_BUFLEN);
+    //cout << "Enter course list: ";
+    //cin.getline(courses, DEFAULT_BUFLEN);
 
-    addNameToList(members, userName);
+    //addNameToList(members, userName);
 
-    cout << "\nHosting study group on port " << DEFAULT_PORT << "...\n";
+    cout << "\nHosting study group on port " << DEFAULT_PORT << "...\n"; // Change to make sence later
     cout << "Waiting for requests...\n";
 
     while (true) 
@@ -158,19 +158,19 @@ void runServer(const char userName[])
 
         logReceived(recvBuf, senderAddr);
 
-        if (_stricmp(recvBuf, Study_QUERY) == 0)
+        if (_stricmp(recvBuf, Study_QUERY) == 0)  // mov 
         {
             buildResponse(sendBuf, Study_NAME, userName);
         }
-        else if (_stricmp(recvBuf, Study_WHERE) == 0)
+        else if (_stricmp(recvBuf, Study_WHERE) == 0) // comment
         {
             buildResponse(sendBuf, Study_LOC, location);
         }
-        else if (_stricmp(recvBuf, Study_WHAT) == 0) 
+		else if (_stricmp(recvBuf, Study_WHAT) == 0)  // forfeit
         {
             buildResponse(sendBuf, Study_COURSES, courses);
         }
-        else if (_stricmp(recvBuf, Study_MEMBERS) == 0)
+        /*  else if (_stricmp(recvBuf, Study_MEMBERS) == 0)
         {
             buildResponse(sendBuf, Study_MEMLIST, members);
         }
@@ -180,7 +180,7 @@ void runServer(const char userName[])
             strcpy_s(joiningName, MAX_NAME, recvBuf + strlen(Study_JOIN));
             addNameToList(members, joiningName);
             strcpy_s(sendBuf, DEFAULT_BUFLEN, Study_CONFIRM);
-        }
+        } */
         else
         {
             cout << "Unknown datagram ignored.\n";
@@ -229,19 +229,19 @@ bool runClient(const char userName[])
 
     if (numServers <= 0) 
     {
-        cout << "No study groups found.\n";
+        cout << "No Games Found.\n";
         closesocket(s);
         return false;
     }
 
-    cout << "\nAvailable study groups:\n";
+    cout << "\nAvailable Games:\n";
     for (int i = 0; i < numServers; i++) 
     {
         cout << i + 1 << ". " << servers[i].name << endl;
     }
 
     int selection;
-    cout << "Choose a study group: ";
+    cout << "Choose a Game: ";
     cin >> selection;
     cin.ignore(1000, '\n');
 
@@ -251,6 +251,10 @@ bool runClient(const char userName[])
         closesocket(s);
         return false;
     }
+
+    // Server accepts or declines challenge
+
+    // If server says no, it closes the connection and return to the join menu
 
     sockaddr_in selectedServer = servers[selection - 1].addr;
     sockaddr_in fromAddr{};
@@ -271,6 +275,7 @@ bool runClient(const char userName[])
         memset(sendBuf, 0, DEFAULT_BUFLEN);
         memset(recvBuf, 0, DEFAULT_BUFLEN);
 
+        /*
         switch (choice) {
         case 1:
             strcpy_s(sendBuf, DEFAULT_BUFLEN, Study_WHERE);
@@ -292,7 +297,7 @@ bool runClient(const char userName[])
             cout << "Invalid choice.\n";
             continue;
         }
-
+        */
         iResult = sendto(
             s,
             sendBuf,
@@ -330,7 +335,7 @@ bool runClient(const char userName[])
 
                     if (choice == 4 && _stricmp(recvBuf, Study_CONFIRM) == 0) 
                     {
-                        cout << "Successfully joined the study group.\n";
+                        cout << "Successfully Joined Game\n";
                         closesocket(s);
                         return true;
                     }
@@ -365,14 +370,14 @@ bool runClient(const char userName[])
 
 void printMainMenu() 
 {
-    cout << "\nStudy Buddy:\n";
-    cout << "1. Host a group\n";
-    cout << "2. Join a group\n";
+    cout << "\nNIM Game:\n";
+    cout << "1. Host a game\n";
+    cout << "2. Join a game\n";
     cout << "3. Exit\n";
     cout << "Choice: ";
 }
 
-void printClientMenu() 
+void printClientMenu() //repurpose for if server declinies challenge
 {
     cout << "\nJoin Menu:\n";
     cout << "1. Ask location\n";
