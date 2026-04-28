@@ -3,7 +3,7 @@
 #include <iostream>
 #include <cstring>
 #include "NimH.h"
-#include "gameBoard.cpp"
+#include "gameBoard.h"
 
 using namespace std;
 
@@ -13,7 +13,6 @@ void runServer(const char userName[]);
 bool runClient(const char userName[]);
 
 void printMainMenu();
-void printClientMenu();
 
 void logSent(const char msg[], const sockaddr_in& addr);
 void logReceived(const char msg[], const sockaddr_in& addr);
@@ -172,35 +171,25 @@ void runServer(const char userName[])
                 if (strcmp(sendBuf, Nim_GREAT) == 0) 
                 {
                     //call game board constructor here
+                    
+                    const char* serverboard;
+                    GameBoard(serverboard);
+                    while (checkWin() == 0) {
+                        
+                    }
                     // check for number of piles < 0
                 }
                 else
                 {
-                    continue; // loop back arround to wait
+                    continue;
 				}
                 
             } else if (comment == 'n' || comment == 'N')
             {
                 sendto(s, Nim_NO, strlen(Nim_NO), 0, (sockaddr*)&senderAddr, senderAddrSize);
+				continue;
             }
         }
-		else if (_stricmp(recvBuf, Study_WHAT) == 0)  
-        {
-            buildResponse(sendBuf, Study_COURSES, courses);
-        }
-
-        /*
-          else if (_stricmp(recvBuf, Study_MEMBERS) == 0)
-        {
-            buildResponse(sendBuf, Study_MEMLIST, members);
-        }
-        else if (_strnicmp(recvBuf, Study_JOIN, strlen(Study_JOIN)) == 0)
-        {
-            char joiningName[MAX_NAME] = "";
-            strcpy_s(joiningName, MAX_NAME, recvBuf + strlen(Study_JOIN));
-            addNameToList(members, joiningName);
-            strcpy_s(sendBuf, DEFAULT_BUFLEN, Study_CONFIRM);
-        } */
         else
         {
             cout << "Unknown datagram ignored.\n";
@@ -274,12 +263,11 @@ bool runClient(const char userName[])
 
     // Server accepts or declines challenge
 
-    // If server says no, it closes the connection and return to the join menu
-
     sockaddr_in selectedServer = servers[selection - 1].addr;
     sockaddr_in fromAddr{};
     int fromAddrSize = sizeof(fromAddr);
 
+    
     char sendBuf[DEFAULT_BUFLEN] = "";
     char recvBuf[DEFAULT_BUFLEN] = "";
 
@@ -288,36 +276,13 @@ bool runClient(const char userName[])
 
     while (clientMenu) 
     {
-        printClientMenu();
-        cin >> choice;
-        cin.ignore(1000, '\n');
 
         memset(sendBuf, 0, DEFAULT_BUFLEN);
         memset(recvBuf, 0, DEFAULT_BUFLEN);
 
-        /*
-        switch (choice) {
-        case 1:
-            strcpy_s(sendBuf, DEFAULT_BUFLEN, Study_WHERE);
-            break;
-        case 2:
-            strcpy_s(sendBuf, DEFAULT_BUFLEN, Study_WHAT);
-            break;
-        case 3:
-            strcpy_s(sendBuf, DEFAULT_BUFLEN, Study_MEMBERS);
-            break;
-        case 4:
-            strcpy_s(sendBuf, DEFAULT_BUFLEN, Study_JOIN);
-            strcat_s(sendBuf, DEFAULT_BUFLEN, userName);
-            break;
-        case 5:
-            clientMenu = false;
-            continue;
-        default:
-            cout << "Invalid choice.\n";
-            continue;
-        }
-        */
+        strcpy_s(sendBuf, DEFAULT_BUFLEN, Nim_PLAYER);
+        strcat_s(sendBuf, DEFAULT_BUFLEN, userName);
+
         iResult = sendto(
             s,
             sendBuf,
@@ -335,7 +300,7 @@ bool runClient(const char userName[])
 
         logSent(sendBuf, selectedServer);
 
-        int ready = wait(s, 2, 0);
+        int ready = wait(s, 10, 0);
         if (ready == 1)
         {
             iResult = recvfrom(
@@ -353,13 +318,28 @@ bool runClient(const char userName[])
                 {
                     logReceived(recvBuf, fromAddr);
 
-                    if (choice == 4 && _stricmp(recvBuf, Study_CONFIRM) == 0) 
+                    if (_stricmp(recvBuf, Nim_NO) == 0)
                     {
-                        cout << "Successfully Joined Game\n";
-                        closesocket(s);
-                        return true;
+						cout << "Challenge declined by server.\n";
+						cout << "Would you like to choose a different game or exit ? (1 = choose, 2 = exit): \n";
+						cin >> choice;
+                        if (choice == 1) 
+                        {
+							runClient(userName);
+                        }
+                        else {
+                            closesocket(s);
+                            return true;
+                        }
                     }
-                    else 
+					else if (_stricmp(recvBuf, Nim_YES) == 0)
+                    {
+                        sendto(s, Nim_GREAT, strlen(Nim_GREAT), 0, (sockaddr*)&fromAddr, fromAddrSize);
+						//call game board constructor here
+                        const char* clientboard;
+                        GameBoard(clientboard);
+                    }
+                    else
                     {
                         cout << recvBuf << endl;
                     }
@@ -397,16 +377,6 @@ void printMainMenu()
     cout << "Choice: ";
 }
 
-void printClientMenu() //repurpose for if server declinies challenge
-{
-    cout << "\nJoin Menu:\n";
-    cout << "1. Ask location\n";
-    cout << "2. Ask courses\n";
-    cout << "3. Ask members\n";
-    cout << "4. Join group\n";
-    cout << "5. Back\n";
-    cout << "Choice: ";
-}
 
 void logSent(const char msg[], const sockaddr_in& addr) 
 {
