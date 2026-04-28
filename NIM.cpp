@@ -3,7 +3,7 @@
 #include <iostream>
 #include <cstring>
 #include "NimH.h"
-
+#include "gameBoard.cpp"
 
 using namespace std;
 
@@ -117,23 +117,18 @@ void runServer(const char userName[])
     freeaddrinfo(result);
 
 
-    //char location[DEFAULT_BUFLEN] = "";
-    //char courses[DEFAULT_BUFLEN] = "";
-    //char members[DEFAULT_BUFLEN] = "";
+
+	char move[3] = ""; 
+	char comment[DEFAULT_BUFLEN] = "";
+	char forfeit[DEFAULT_BUFLEN] = "";
     char recvBuf[DEFAULT_BUFLEN] = "";
     char sendBuf[DEFAULT_BUFLEN] = "";
 
     sockaddr_in senderAddr{};
     int senderAddrSize = sizeof(senderAddr);
 
-    //cout << "\nEnter location of the study group: ";
-    //cin.getline(location, DEFAULT_BUFLEN);
-    //cout << "Enter course list: ";
-    //cin.getline(courses, DEFAULT_BUFLEN);
 
-    //addNameToList(members, userName);
-
-    cout << "\nHosting study group on port " << DEFAULT_PORT << "...\n"; // Change to make sence later
+    cout << "\nHosting Game on port " << DEFAULT_PORT << "...\n";
     cout << "Waiting for requests...\n";
 
     while (true) 
@@ -158,19 +153,44 @@ void runServer(const char userName[])
 
         logReceived(recvBuf, senderAddr);
 
-        if (_stricmp(recvBuf, Study_QUERY) == 0)  // mov 
+        if (_stricmp(recvBuf, Nim_QUERY) == 0) 
         {
-            buildResponse(sendBuf, Study_NAME, userName);
+            buildResponse(sendBuf, Nim_NAME, userName);
         }
-        else if (_stricmp(recvBuf, Study_WHERE) == 0) // comment
+
+        
+        else if (_stricmp(recvBuf, Nim_PLAYER) == 0)
         {
-            buildResponse(sendBuf, Study_LOC, location);
+            char comment;
+			cout << "Received Challenge from " << recvBuf<< endl;
+			cout << "Accept ? (y/n): \n";
+			cin >> comment;
+            if (comment == 'y' || comment == 'Y')
+            {
+                sendto(s, Nim_YES, strlen(Nim_YES), 0, (sockaddr*)&senderAddr, senderAddrSize);
+				wait(s, 2, 0); //wait for client to respond before sending game data
+                if (strcmp(sendBuf, Nim_GREAT) == 0) 
+                {
+                    //call game board constructor here
+                    // check for number of piles < 0
+                }
+                else
+                {
+                    continue; // loop back arround to wait
+				}
+                
+            } else if (comment == 'n' || comment == 'N')
+            {
+                sendto(s, Nim_NO, strlen(Nim_NO), 0, (sockaddr*)&senderAddr, senderAddrSize);
+            }
         }
-		else if (_stricmp(recvBuf, Study_WHAT) == 0)  // forfeit
+		else if (_stricmp(recvBuf, Study_WHAT) == 0)  
         {
             buildResponse(sendBuf, Study_COURSES, courses);
         }
-        /*  else if (_stricmp(recvBuf, Study_MEMBERS) == 0)
+
+        /*
+          else if (_stricmp(recvBuf, Study_MEMBERS) == 0)
         {
             buildResponse(sendBuf, Study_MEMLIST, members);
         }
