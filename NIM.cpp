@@ -141,11 +141,10 @@ void runServer(const char userName[])
             continue;
         }
 
-        // Challenge request — client sends Nim_PLAYER prefix + username
+        // Challenge request
         if (_strnicmp(recvBuf, Nim_PLAYER, strlen(Nim_PLAYER)) == 0)
         {
             char answer;
-            // The challenger's name follows the Nim_PLAYER prefix
             const char* challengerName = recvBuf + strlen(Nim_PLAYER);
             cout << "Challenge received from " << challengerName << "!\nAccept? (y/n): ";
             cin >> answer;
