@@ -2,6 +2,7 @@
 #include <WS2tcpip.h>
 #include <iostream>
 #include <cstring>
+#include <string>
 #include "NimH.h"
 #include "gameBoard.h"
 
@@ -18,7 +19,6 @@ void logSent(const char msg[], const sockaddr_in& addr);
 void logReceived(const char msg[], const sockaddr_in& addr);
 
 bool sameAddress(const sockaddr_in& a, const sockaddr_in& b);
-void addNameToList(char list[], const char name[]);
 void buildResponse(char dest[], const char prefix[], const char value[]);
 
 
@@ -117,9 +117,6 @@ void runServer(const char userName[])
 
 
 
-	char move[3] = ""; 
-	char comment[DEFAULT_BUFLEN] = "";
-	char forfeit[DEFAULT_BUFLEN] = "";
     char recvBuf[DEFAULT_BUFLEN] = "";
     char sendBuf[DEFAULT_BUFLEN] = "";
 
@@ -172,13 +169,76 @@ void runServer(const char userName[])
                 {
                     //call game board constructor here
                     
-                    const char* serverboard;
-                    GameBoard(serverboard);
-                    while (checkWin() == 0) {
-                        
+                    char* serverBoard = new char[DEFAULT_BUFLEN];
+                    cout << "Create Gameboard | Piles must be between 3 and 9, between 1 to 20 rocks per pile. \n"
+                        << "in the format of mn1n1n2n2n3n3... where m is the number of piles and n is each digit \n"
+                        << "Example: 3120803 being 3 piles with 12, 8 and 3 respectively \n\n";
+                    cin >> serverBoard;
+                    sendto(s, serverBoard, strlen(serverBoard), 0, (sockaddr*)&senderAddr, senderAddrSize);
+                    GameBoard serverGame(serverBoard);
+
+                    while (serverGame.checkWin() == 0) 
+                    {
+                        memset(recvBuf, 0, DEFAULT_BUFLEN);
+                        int i = 0;
+                        while (i < 6 || recvBuf != 0)
+                        {
+                            wait(s, 5, 0);
+                            recvfrom(s, recvBuf, strlen(recvBuf), 0, (sockaddr*)&senderAddr, &senderAddrSize);
+                            ++i;
+                        }
+                        while (recvBuf != 0)
+                        {
+                            if (serverGame.checkWin() == 1) {
+                                closesocket(s);
+                            }
+
+                            char* choice = new char[DEFAULT_BUFLEN];
+                            cout << "It's your turn, would you like to: \n"
+                                << "Make a move(mnn for pile and rocks EX: 211 for pile 2 and 11 rocks) \n"
+                                << "Send a Comment(C followed by text you want to send EX: CHello World) \n"
+                                << "Forfeit(F) \n";
+                            cin.getline(choice, DEFAULT_BUFLEN);
+                            
+                            if (choice[0] == 'C' || choice[0] == 'c') {
+                                choice++;
+                                sendto(s, choice, strlen(choice), 0, (sockaddr*)&senderAddr, senderAddrSize);
+                                continue;
+                            }
+
+                            if (choice[0] == 'F' || choice[0] == 'f') {
+                                closesocket(s);
+                            }
+
+                            else
+                            {
+                                int move = serverGame.makeMove(choice);
+                                if (move == -1) {
+                                    cout << "Invalid move, please input a valid move. \n";
+                                    continue;
+                                }
+                                if (move == 0) {
+                                    break;
+                                }
+                                continue;
+                            }
+                        }
+
+                        if (recvBuf == 0) 
+                        {
+                            cout << "Opponent did not make a move. You win by default! \n";
+                            closesocket(s);
+                        }
+
                     }
-                    // check for number of piles < 0
+                    if (serverGame.checkWin() == 1)
+                    {
+                        cout << "You win! \n";
+
+                        closesocket(s);
+                    }
                 }
+
                 else
                 {
                     continue;
@@ -254,7 +314,7 @@ bool runClient(const char userName[])
     cin >> selection;
     cin.ignore(1000, '\n');
 
-    if (selection < 1 || selection > numServers) 
+    if (selection < 1 || selection > numServers)
     {
         cout << "Invalid selection.\n";
         closesocket(s);
@@ -267,14 +327,14 @@ bool runClient(const char userName[])
     sockaddr_in fromAddr{};
     int fromAddrSize = sizeof(fromAddr);
 
-    
+
     char sendBuf[DEFAULT_BUFLEN] = "";
     char recvBuf[DEFAULT_BUFLEN] = "";
 
     int choice;
     bool clientMenu = true;
 
-    while (clientMenu) 
+    while (clientMenu)
     {
 
         memset(sendBuf, 0, DEFAULT_BUFLEN);
@@ -292,7 +352,7 @@ bool runClient(const char userName[])
             sizeof(selectedServer)
         );
 
-        if (iResult == SOCKET_ERROR) 
+        if (iResult == SOCKET_ERROR)
         {
             cout << "sendto() failed: " << WSAGetLastError() << endl;
             continue;
@@ -312,32 +372,133 @@ bool runClient(const char userName[])
                 &fromAddrSize
             );
 
-            if (iResult > 0) 
+            if (iResult > 0)
             {
-                if (sameAddress(fromAddr, selectedServer)) 
+                if (sameAddress(fromAddr, selectedServer))
                 {
                     logReceived(recvBuf, fromAddr);
 
                     if (_stricmp(recvBuf, Nim_NO) == 0)
                     {
-						cout << "Challenge declined by server.\n";
-						cout << "Would you like to choose a different game or exit ? (1 = choose, 2 = exit): \n";
-						cin >> choice;
-                        if (choice == 1) 
+                        cout << "Challenge declined by server.\n";
+                        cout << "Would you like to choose a different game or exit ? (1 = choose, 2 = exit): \n";
+                        cin >> choice;
+                        if (choice == 1)
                         {
-							runClient(userName);
+                            runClient(userName);
                         }
                         else {
                             closesocket(s);
                             return true;
                         }
                     }
-					else if (_stricmp(recvBuf, Nim_YES) == 0)
+                    else if (_stricmp(recvBuf, Nim_YES) == 0)
                     {
                         sendto(s, Nim_GREAT, strlen(Nim_GREAT), 0, (sockaddr*)&fromAddr, fromAddrSize);
-						//call game board constructor here
-                        const char* clientboard;
-                        GameBoard(clientboard);
+                        //call game board constructor here
+                        wait(s, 2, 0);
+                        const char* clientBoard = new char[DEFAULT_BUFLEN];
+                        iResult;
+                        clientBoard = recvBuf;
+                        GameBoard clientGame(clientBoard);
+
+                        if (clientGame.checkWin() == 1) {
+                            closesocket(s);
+                        }
+                        while (recvBuf != 0)
+                        {
+                            char* choice = new char[DEFAULT_BUFLEN];
+                            cout << "It's your turn, would you like to: \n"
+                                << "Make a move(mnn for pile and rocks EX: 211 for pile 2 and 11 rocks) \n"
+                                << "Send a Comment(C followed by text you want to send EX: CHello World) \n"
+                                << "Forfeit(F) \n";
+                            cin.getline(choice, DEFAULT_BUFLEN);
+
+                            if (choice[0] == 'C' || choice[0] == 'c') {
+                                choice++;
+                                sendto(s, choice, strlen(choice), 0, (sockaddr*)&fromAddr, fromAddrSize);
+                                continue;
+                            }
+
+                            if (choice[0] == 'F' || choice[0] == 'f') {
+                                closesocket(s);
+                            }
+
+                            else
+                            {
+                                int move = clientGame.makeMove(choice);
+                                if (move == -1) {
+                                    cout << "Invalid move, please input a valid move. \n";
+                                    continue;
+                                }
+                                if (move == 0) {
+                                    break;
+                                }
+                                continue;
+                            }
+                        }
+                    
+
+                        while (clientGame.checkWin() == 0)
+                        {
+                            memset(recvBuf, 0, DEFAULT_BUFLEN);
+                            int i = 0;
+                            while (i < 6 || recvBuf != 0)
+                            {
+                                wait(s, 5, 0);
+                                recvfrom(s, recvBuf, strlen(recvBuf), 0, (sockaddr*)&fromAddr, &fromAddrSize);
+                                ++i;
+                            }
+                            while (recvBuf != 0)
+                            {
+                                if (clientGame.checkWin() == 1) {
+                                    closesocket(s);
+                                }
+
+                                char* choice = new char[DEFAULT_BUFLEN];
+                                cout << "It's your turn, would you like to: \n"
+                                    << "Make a move(mnn for pile and rocks EX: 211 for pile 2 and 11 rocks) \n"
+                                    << "Send a Comment(C followed by text you want to send EX: CHello World) \n"
+                                    << "Forfeit(F) \n";
+                                cin.getline(choice, 81);
+
+                                if (choice[0] == 'C' || choice[0] == 'c') {
+                                    choice++;
+                                    sendto(s, choice, strlen(choice), 0, (sockaddr*)&fromAddr, fromAddrSize);
+                                    continue;
+                                }
+
+                                if (choice[0] == 'F' || choice[0] == 'f') {
+                                    closesocket(s);
+                                }
+
+                                else
+                                {
+                                    int move = clientGame.makeMove(choice);
+                                    if (move == -1) {
+                                        cout << "Invalid move, please input a valid move. \n";
+                                        continue;
+                                    }
+                                    if (move == 0) {
+                                        break;
+                                    }
+                                    continue;
+                                }
+                            }
+
+                            if (recvBuf == 0)
+                            {
+                                cout << "Opponent did not make a move. You win by default! \n";
+                                closesocket(s);
+                            }
+
+                        }
+                        if (clientGame.checkWin() == 1)
+                        {
+                            cout << "You win! \n";
+
+                            closesocket(s);
+                        }
                     }
                     else
                     {
@@ -402,18 +563,8 @@ bool sameAddress(const sockaddr_in& a, const sockaddr_in& b)
         a.sin_port == b.sin_port;
 }
 
-void addNameToList(char list[], const char name[]) 
-{
-    if (strlen(list) > 0) {
-        strcat_s(list, DEFAULT_BUFLEN, "\n");
-    }
-    strcat_s(list, DEFAULT_BUFLEN, name);
-}
-
 void buildResponse(char dest[], const char prefix[], const char value[]) 
 {
     strcpy_s(dest, DEFAULT_BUFLEN, prefix);
     strcat_s(dest, DEFAULT_BUFLEN, value);
 }
-
-
