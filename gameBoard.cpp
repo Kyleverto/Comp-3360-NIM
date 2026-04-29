@@ -37,6 +37,10 @@ void GameBoard::createPiles(const char* board) {
 int GameBoard::makeMove(const char* move) {
 	int fromPile = (move[0] - '0') - 1;
 
+	if (strlen(move) != 3) {
+		return -1; // Invalid move: Win by default
+	}
+
 	if(fromPile < 0 || fromPile > numPiles) {
 		return -1; // Invalid move: Win by default
 	}
